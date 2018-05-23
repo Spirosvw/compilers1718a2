@@ -88,11 +88,11 @@ class MyParser():
 
         def term_tail(self):
             if self.la == "and" or self.la == "or":
-                op = self.operator_or()
+                op = self.operator_and_or()
                 a = self.term()
                 b = self.term_tail()
                 if b is None:
-                    return op, t
+                    return op, a
                 if b[0] == "or":
                     return op, self.operator_or(a, b[1])
             elif self.la == "IDENTIFIER" or self.la == "print" or self.la == ")" or self.la == None:
@@ -103,8 +103,12 @@ class MyParser():
 
         def term(self):
                 if self.la=="(" or self.la=="IDENTIFIER" or self.la=="FALSE" or self.la=="TRUE" or self.la=="not":
-                    self.factor()
-                    self.factor_tail()
+                    f = self.factor()
+                    ft = self.factor_tail()
+                    if ft is None:
+                        return f
+                    if ft[0] == "and":
+                        return self.operator_and(f, ft[1])
                 else:
                     raise ParseError("Expected id ,boolean operator or 'not' operator")
 
@@ -125,21 +129,35 @@ class MyParser():
 
 
         def factor(self):
-            if self.la == "(":
-                self.match("(")
-                self.expr()
-                self.match(")")
+            if self.la == "and":
+                op = self.operator_and_or()
+                f = self.factor()
+                ft = self.factor_tail()
+                if ft is None:
+                    return op, f
+                if ft[0] == "and":
+                    return op, self.operator_and(f, ft[1])
             elif self.la == "IDENTIFIER":
-                self.match("IDENTIFIER")
-            elif self.la == "TRUE":
-                self.match("TRUE")
-            elif self.la == "FALSE":
-                self.match("FALSE")
-            elif self.la == "and" or self.la == "or" or self.la == "not" or self.la == "print" or self.la == None or self.la == ")":
-                return
-            else:
-                raise ParseError("Expected id or boolean operator", self.la)
+                varname = self.val
+                self.match(self.la)
+                if varname in self.st:
+                    if not_op == "not":
+                        return self.operator_not(self.st[varname])
+                    else:
+                        return self.st[varname]
 
+
+                raise RunError("Unitialized variable: ", varname)
+
+            elif self.la=="true" or self.la=="false":
+                token = self.la
+                self.match(token)
+                if not_op == "not":
+                    return self.operator_not(token)
+                else:
+                    return token
+            else:
+                raise ParseError("Excpected: id, (expr), values")
 
         def match(self, token):
             if self.la == token:
@@ -192,6 +210,9 @@ except ParseError as perr:
     print(perr)
 
 fp.close()
+
+
+
 
 
 
